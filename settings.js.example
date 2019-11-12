@@ -4,8 +4,10 @@ module.exports = {
   ip: '127.0.0.1', // IP where this server listens
   port: 9999,
   tunnelIP: "172.20.0.1", // our tunnel subnet IP
-  tunnelIPPrefix: "172.20.0.", // clients are given IPs in this space
+  tunnelIPFrom: "172.20.0.10", // clients are given IPs in this space
+  tunnelIPTo: "172.20.0.250", // up to and including this IP
   tunnelNetmask: 24,
-  tunnelPortStart: 8000
+  tunnelPortFrom: 8000,
+  tunnelPortTo: 8500
   
 };

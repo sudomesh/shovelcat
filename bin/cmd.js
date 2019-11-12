@@ -20,6 +20,67 @@ if(process.getuid() !== 0) {
   process.exit(1);
 }
 
+function allocatePort() {
+  var i, id, tun, used;
+  for(i=settings.tunnelPortFrom; i < settings.tunnelPortTo; i++) {
+    used = false;
+    for(id in tunnels) {
+      tun = tunnels[id];
+      if(tun.port === i) {
+        used = true;
+        break
+      }
+    }
+    if(!used) return i;
+  }
+  throw new Error("No unallocated ports remaining");
+}
+
+
+function ipToNumber(ip) {
+  var parts = ip.split('.');
+  var number = 0;
+  var n;
+  var i;
+  for(i=0; i < 4; i++) {
+    n = parseInt(parts[i])
+    if(n < 0 || n > 255) throw new Error("Invalid IP: " + ip);
+    number += n * Math.pow(256, 3-i)
+  }
+  return number;
+}
+
+function numberToIP(number) {
+  var parts = [0, 0, 0, 0]
+  var i, p;
+  for(i=0; i < 3; i++) {
+    p = Math.pow(256, 3-i)
+    parts[i] = Math.floor(number / p);
+    number -= parts[i] * p;
+  }
+  parts[3] = number;
+  return parts.join('.');
+}
+
+function allocateIP() {
+  var from = ipToNumber(settings.tunnelIPFrom);
+  var to = ipToNumber(settings.tunnelIPTo);
+  
+  var n, id, tun, used;
+  for(n=from; n <= to; n++) {
+    used = false
+    for(id in tunnels) {
+      tun = tunnels[id];
+      if(ipToNumber(tun.tunnelIP) === n) {
+        used = true;
+        break;
+      }
+    }
+    if(!used) return numberToIP(n);
+  }
+  throw new Error("No unallocated ports remaining");
+}
+
 function parseClientHello(data) {
 
   var client = {
@@ -34,11 +95,10 @@ function parseClientHello(data) {
 
 function closeTunnel(tunnel) {
   if(tunnel.process) {
-    console.log("KILLING:", tunnel.process.pid);
     tunnel.socket.destroy();
     tunnel.process.kill();
   }
-  delete tunnels[tunnel.port]
+  delete tunnels[tunnel.id]
 }
 
 function configureTunnel(tunnel, cb) {
@@ -69,25 +129,20 @@ function configureTunnel(tunnel, cb) {
 }
   
 function openTunnel(client, cb) {
-  if(tunnels[client.port]) {
-    if(tunnels[client.port].id === client.id) {
-      
-      closeTunnel(tunnels[client.port]);
-      process.nextTick(function() {
-        openTunnel(client, cb);
-      });
-      return;
-      
-    } else {
-      return cb(new Error("Another client (different ID) is already using this port"));
-    }
+  if(tunnels[client.id]) {
+    closeTunnel(tunnels[client.id]);
+    process.nextTick(function() {
+      openTunnel(client, cb);
+    });
+    return;
   }
 
-  // TODO move to own function
-  var tunnelIP = settings.tunnelIPPrefix + tunnelIPCount;
-  tunnelIPCount++;
-  var tunnelPort = settings.tunnelPortStart + tunnelPortCount;
-  tunnelPortCount++;
+  try {
+    var tunnelIP = allocateIP();
+    var tunnelPort = allocatePort();
+  } catch(e) {
+    return cb(err);
+  }
   
   var tunnel = {
     socket: client.socket,
@@ -98,7 +153,7 @@ function openTunnel(client, cb) {
     ipv6: client.ipv6
   };
 
-  tunnels[tunnelPort] = tunnel;
+  tunnels[tunnel.id] = tunnel;
 
   console.log("Opening tunnel for", client.ip, "on port", client.port);
   

@@ -88,7 +88,6 @@ Then you should be able to ping `172.20.0.1`.
 
 ## Server daemon
 
-* Keep track of used IP addresses and ports and re-allocate them properly
 * Implement heartbeat and tunnel teardown after timeout
 * Finish IPv6 support
 
