@@ -1,0 +1,11 @@
+
+module.exports = {
+
+  ip: '127.0.0.1', // IP where this server listens
+  port: 9999,
+  tunnelIP: "172.20.0.1", // our tunnel subnet IP
+  tunnelIPPrefix: "172.20.0.", // clients are given IPs in this space
+  tunnelNetmask: 24,
+  tunnelPortStart: 8000
+  
+};
