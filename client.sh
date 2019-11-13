@@ -56,9 +56,7 @@ fi
 
 echo "Remote tunnel endpoint established"
 
-echo "pppd pty \"nc -u $DAEMON_IP $DAEMON_PORT\" ${TUNNEL_IP}:${SERVER_IP} ifname $IFNAME local nodetach silent &"
-
-pppd pty "nc $DAEMON_IP $DAEMON_PORT" ${TUNNEL_IP}:${SERVER_IP} ifname $IFNAME local nodetach silent &
+pppd pty "nc $DAEMON_IP $TUNNEL_PORT" ${TUNNEL_IP}:${SERVER_IP} ifname $IFNAME local nodetach silent &
 
 PPPD_PID=$!
 

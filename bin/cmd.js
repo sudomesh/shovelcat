@@ -115,7 +115,7 @@ function configureTunnel(tunnel, cb) {
     return cb(new Error("configureTunnel does not have IPv6 support"));
   }
   
-    exec('ip addr add dev '+tunnel.ifname+' '+tunnel.tunnelIP+'/'+settings.tunnelNetmask, {shell: true},  function(err, stdout, stderr) {
+    exec('ip addr add dev '+tunnel.ifname+' '+settings.tunnelIP+'/'+settings.tunnelNetmask, {shell: true},  function(err, stdout, stderr) {
       if(err) {
         var str = "Configuring tunnel failed";
         if(stderr) {
