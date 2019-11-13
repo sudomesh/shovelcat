@@ -160,7 +160,7 @@ function openTunnel(client, cb) {
   var cmd = 'pppd';
   var args = [
     'pty',
-    'nc -l '+tunnel.port,
+    'nc -u -l '+tunnel.port,
     settings.tunnelIP+':'+tunnelIP,
     'local',
     'nodetach',
