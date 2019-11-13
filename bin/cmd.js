@@ -155,12 +155,12 @@ function openTunnel(client, cb) {
 
   tunnels[tunnel.id] = tunnel;
 
-  console.log("Opening tunnel for", client.ip, "on port", client.port);
+  console.log("Opening tunnel for", client.ip, "on port", tunnel.port);
   
   var cmd = 'pppd';
   var args = [
     'pty',
-    'nc -u -l '+tunnel.port,
+    'nc -l '+tunnel.port,
     settings.tunnelIP+':'+tunnelIP,
     'local',
     'nodetach',

@@ -4,8 +4,8 @@
 IFNAME="ppp0"
 
 # Port where the tunnel daemon is listening
-DEAMON_IP=127.0.0.1
-DEAMON_PORT=9999
+DAEMON_IP=107.170.232.149
+DAEMON_PORT=9999
 
 # Interface to get MAC address from.
 # The MAC address is used as this device's unique identifier
@@ -20,7 +20,7 @@ MAC_INTERFACE="wlan0"
 # Don't edit beyond this point for config purposes
 #--------------------------------------------------
 
-# generate device-unique ID from MAC address
+# Generate device-unique ID from MAC address
 MAC=$(ip link show dev $MAC_INTERFACE | grep ether| tr -s ' ' | cut -d ' ' -f 3)
 ID=$(echo "$MAC meshmash" | md5sum)
 
@@ -56,7 +56,9 @@ fi
 
 echo "Remote tunnel endpoint established"
 
-pppd pty "nc -u $DAEMON_IP $DAEMON_PORT" ${TUNNEL_IP}:${SERVER_IP} ifname $IFNAME local nodetach silent &
+echo "pppd pty \"nc -u $DAEMON_IP $DAEMON_PORT\" ${TUNNEL_IP}:${SERVER_IP} ifname $IFNAME local nodetach silent &"
+
+pppd pty "nc $DAEMON_IP $DAEMON_PORT" ${TUNNEL_IP}:${SERVER_IP} ifname $IFNAME local nodetach silent &
 
 PPPD_PID=$!
 
@@ -64,6 +66,9 @@ if [ $? -ne 0 ]; then
     echo "Failed to start pppd" > /dev/stderr
     exit 1
 fi
+
+# hacky but we need to wait for pppd to possibly rename the interface
+sleep 3
 
 ip link set dev $IFNAME up
 
@@ -86,16 +91,19 @@ ping -c 3 -W 3 -q $SERVER_IP
 
 if [ $? -ne 0 ]; then
     echo "Unable to ping server over tunnel" > /dev/stderr
-    exit 1
+    #    exit 1
+else
+    echo "Tunnel connection established!"    
 fi
 
-echo "Tunnel connection established!"
+
+
 
 # ToDo
 # * kill pppd when script this is killed
 # * Add keepalive and tunnel re-establish
 
-wait $PPPD_PID
+#wait $PPPD_PID
 
 # kill PPPD and wait for it to die
 #kill $PPPD_PID

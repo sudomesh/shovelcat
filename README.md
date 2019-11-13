@@ -89,7 +89,6 @@ ip addr add dev ppp0 172.20.0.10/24
 
 Then you should be able to ping `172.20.0.1`.
 
-
 # ToDo
 
 ## Server daemon
