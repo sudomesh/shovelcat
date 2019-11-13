@@ -1,8 +1,10 @@
 Work in progress tunnel daemon for ppp over netcat tunnels.
 
-For devices without support for any sane tunnels at least usually we can use `pppd` and `nc` to open _some_ sort of tunnel.
+For devices without support for any sane tunnels we can often use `pppd` and `nc` to open _some_ sort of tunnel.
 
-This daemon listens for requests to open a tunnel
+This daemon listens for requests to open a tunnel, assigns an IP and port from a pool, opens the server end of the tunnel and informs the client of the assigned IP and port so the client can opent its end of the tunnel.
+
+The client is a simple shell script capable of running on busybox as long as `pppd` and `nc` are available and PPP support is enabled in the kernel.
 
 WARNING: This turns your box into an open relay with absolutely no authentication.
 
@@ -48,7 +50,11 @@ sudo bin/cmd.js
 
 ## Client
 
-Since there's not client script yet, all you can do is ask the server to open a tunnel for you on a specific port. You simply open a TCP connection to the shovelcat daemon and send a unique identifier for your client that you've picked or randomly generated.
+The client is not quite working yet, but you can edit the top part of `client.sh` to configure the script, then simply run it as root.
+
+You can manually replicate what the client does like so:
+
+You simply open a TCP connection to the shovelcat daemon and send a unique identifier for your client that you've picked or randomly generated.
 
 As an example:
 
@@ -94,4 +100,3 @@ Then you should be able to ping `172.20.0.1`.
 
 ## Client script
 
-Hasn't been written yet. Will probably be a shell script.
