@@ -50,7 +50,7 @@ TUNNEL_SUBNET=$(echo $TUNNEL_IP_SUBNET | cut -d '/' -f 2)
 TUNNEL_PORT=$(echo $TMP | cut -d ':' -f 2 | sed 's/[^[[:digit:]]//g')
 
 if [ -z $SERVER_IP -o -z $TUNNEL_IP_SUBNET -o -z $TUNNEL_PORT ]; then
-    echo "Server gave malformed response" > /dev/stderr
+    echo "Server gave malformed response" >&2
     exit 1
 fi
 
@@ -61,7 +61,7 @@ pppd pty "nc -u $DAEMON_IP $TUNNEL_PORT" ${TUNNEL_IP}:${SERVER_IP} ifname $IFNAM
 PPPD_PID=$!
 
 if [ $? -ne 0 ]; then
-    echo "Failed to start pppd" > /dev/stderr
+    echo "Failed to start pppd" >&2
     exit 1
 fi
 
@@ -71,37 +71,30 @@ sleep 3
 ip link set dev $IFNAME up
 
 if [ $? -ne 0 ]; then
-    echo "Failed to set $IFNAME state to up" > /dev/stderr
+    echo "Failed to set $IFNAME state to up" >&2
     exit 1
 fi
 
 ip addr add dev $IFNAME $TUNNEL_IP_SUBNET
 
 if [ $? -ne 0 ]; then
-    echo "Failed to assign IP address to $IFNAME" > /dev/stderr
+    echo "Failed to assign IP address to $IFNAME" >&2
     exit 1
 fi
 
 echo "Local tunnel endpoint established"
 
 # ping three times, waiting 3 seconds for each reply
-ping -c 3 -W 3 -q $SERVER_IP
+ping -c 3 -W 3 -q $SERVER_IP > /dev/null 2>&1
 
 if [ $? -ne 0 ]; then
-    echo "Unable to ping server over tunnel" > /dev/stderr
-    #    exit 1
+    echo "Unable to ping server over tunnel" >&2
+    exit 1
 else
     echo "Tunnel connection established!"    
 fi
 
-
-
-
-# ToDo
-# * kill pppd when script this is killed
-# * Add keepalive and tunnel re-establish
-
-#wait $PPPD_PID
+wait $PPPD_PID
 
 # kill PPPD and wait for it to die
 #kill $PPPD_PID

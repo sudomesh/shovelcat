@@ -91,11 +91,8 @@ Then you should be able to ping `172.20.0.1`.
 
 # ToDo
 
-## Server daemon
-
-* Ensure it just prints an error instead of crashing on error
-* Implement heartbeat and tunnel teardown after timeout
+* Ensure server just prints an error instead of crashing on error
+* Implement heartbeat and tunnel teardown/re-establish after timeout
+* Kill pppd and nc when server/script is killed
 * Finish IPv6 support
-
-## Client script
 
