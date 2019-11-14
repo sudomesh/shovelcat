@@ -1,12 +1,12 @@
-Work in progress tunnel daemon for ppp over netcat tunnels.
+Tunnel daemon for `ppp over netcat` tunnels.
 
 For devices without support for any sane tunnels we can often use `pppd` and `nc` to open _some_ sort of tunnel.
 
-This daemon listens for requests to open a tunnel, assigns an IP and port from a pool, opens the server end of the tunnel and informs the client of the assigned IP and port so the client can opent its end of the tunnel.
+The daemon listens for requests to open a tunnel, assigns an IP and port from a specified pool, opens the server end of the tunnel and informs the client of the assigned IP and port. The client then opens its end of the tunnel.
 
-The client is a simple shell script capable of running on busybox as long as `pppd` and `nc` are available and PPP support is enabled in the kernel.
+The client is a simple shell script capable of running on busybox.
 
-WARNING: This turns your box into an open relay with absolutely no authentication.
+WARNING: The deamon turns your box into an open relay with absolutely no authentication.
 
 # Requirements
 
@@ -17,8 +17,6 @@ The client needs a shell (busybox sh or dash is fine), PPP support in the kernel
 Both client and server must be run as root.
 
 # Configuration
-
-This is just enough to establish the tunnel. You still have to manualy add the appropriate routing rules to get traffic flowing.
 
 ## Server
 
@@ -67,4 +65,3 @@ sudo ./client.sh
 # ToDo
 
 * Finish IPv6 support
-

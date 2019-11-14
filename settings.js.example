@@ -2,13 +2,13 @@
 module.exports = {
 
   ip: '127.0.0.1', // IP where this server listens
-  port: 9999,
-  tunnelIP: "172.20.0.1", // our tunnel subnet IP
+  port: 9999, // Port where this server listens
+  tunnelIP: "172.20.0.1", // This computers IP on the tunnel subnet
   tunnelIPFrom: "172.20.0.10", // clients are given IPs in this space
   tunnelIPTo: "172.20.0.250", // up to and including this IP
-  tunnelNetmask: 24,
-  tunnelPortFrom: 8000,
-  tunnelPortTo: 8500,
+  tunnelNetmask: 24, // Netmask for tunnel subnet
+  tunnelPortFrom: 8000, // Start of port range for netcat UDP tunnel socket
+  tunnelPortTo: 8500, // End of port range for netcat UDP tunnel socket
 
   // How often to check if client is responding in seconds
   // Must be at least 6
@@ -18,7 +18,7 @@ module.exports = {
   heartbeatInterval: 60,
   
   // Paths to optional user-defined scripts to call when a tunnel goes up and down
-  // They receve as arguments:
+  // They receive as arguments:
   //   <tunnel_iface_name> <tunnel_iface_ip> <tunnel_iface_subnet> <tunnel_port>
   postUpHook: '',
   preDownHook: ''
