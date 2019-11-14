@@ -16,6 +16,10 @@ DAEMON_PORT=9999
 # and manually set ID= to some device-unique string
 MAC_INTERFACE="wlan0"
 
+# Ping the other end every HEARTBEAT_INTERVAL seconds
+HEARTBEAT_INTERVAL=3
+
+
 #--------------------------------------------------
 # Don't edit beyond this point for config purposes
 #--------------------------------------------------
@@ -24,77 +28,117 @@ MAC_INTERFACE="wlan0"
 MAC=$(ip link show dev $MAC_INTERFACE | grep ether| tr -s ' ' | cut -d ' ' -f 3)
 ID=$(echo "$MAC meshmash" | md5sum)
 
-echo "Connecting to shovelcat server"
+connect() {
 
-# ask tunneling server to open a tunnel
-REPLY=$(echo $ID | nc $DAEMON_IP $DAEMON_PORT)
+    echo "Connecting to shovelcat server"
 
-if [ $? -ne 0 ]; then
-    echo "Unable to connect to tunneling daemon" > /dev/stderr
-    exit 1
-fi
+    # ask tunneling server to open a tunnel
+    REPLY=$(echo $ID | nc $DAEMON_IP $DAEMON_PORT)
 
-if [ -z $REPLY ]; then
-    echo "Remote server closed socket without replying" > /dev/stderr
-    exit 1
-fi
+    if [ $? -ne 0 ]; then
+        echo "Unable to connect to tunneling daemon" > /dev/stderr
+        return 1
+    fi
 
-echo "Got reply"
+    if [ -z $REPLY ]; then
+        echo "Remote server closed socket without replying" > /dev/stderr
+        return 1
+    fi
 
-# parse reply
-SERVER_IP=$(echo $REPLY | cut -d '|' -f 1 | sed 's/[^[[:digit:].]//g')
-TMP=$(echo $REPLY | cut -d '|' -f 2)
-TUNNEL_IP_SUBNET=$(echo $TMP | cut -d ':' -f 1 | sed 's/[^[[:digit:].\/]//g')
-TUNNEL_IP=$(echo $TUNNEL_IP_SUBNET | cut -d '/' -f 1)
-TUNNEL_SUBNET=$(echo $TUNNEL_IP_SUBNET | cut -d '/' -f 2)
-TUNNEL_PORT=$(echo $TMP | cut -d ':' -f 2 | sed 's/[^[[:digit:]]//g')
+    echo "Got reply"
 
-if [ -z $SERVER_IP -o -z $TUNNEL_IP_SUBNET -o -z $TUNNEL_PORT ]; then
-    echo "Server gave malformed response" >&2
-    exit 1
-fi
+    # parse reply
+    SERVER_IP=$(echo $REPLY | cut -d '|' -f 1 | sed 's/[^[[:digit:].]//g')
+    TMP=$(echo $REPLY | cut -d '|' -f 2)
+    TUNNEL_IP_SUBNET=$(echo $TMP | cut -d ':' -f 1 | sed 's/[^[[:digit:].\/]//g')
+    TUNNEL_IP=$(echo $TUNNEL_IP_SUBNET | cut -d '/' -f 1)
+    TUNNEL_SUBNET=$(echo $TUNNEL_IP_SUBNET | cut -d '/' -f 2)
+    TUNNEL_PORT=$(echo $TMP | cut -d ':' -f 2 | sed 's/[^[[:digit:]]//g')
 
-echo "Remote tunnel endpoint established"
+    if [ -z $SERVER_IP -o -z $TUNNEL_IP_SUBNET -o -z $TUNNEL_PORT ]; then
+        echo "Server gave malformed response" >&2
+        return 1
+    fi
 
-pppd pty "nc -u $DAEMON_IP $TUNNEL_PORT" ${TUNNEL_IP}:${SERVER_IP} ifname $IFNAME local nodetach silent &
+    echo "Remote tunnel endpoint established"
 
-PPPD_PID=$!
+    pppd pty "nc -u $DAEMON_IP $TUNNEL_PORT" ${TUNNEL_IP}:${SERVER_IP} ifname $IFNAME local nodetach silent &
 
-if [ $? -ne 0 ]; then
-    echo "Failed to start pppd" >&2
-    exit 1
-fi
+    PPPD_PID=$!
 
-# hacky but we need to wait for pppd to possibly rename the interface
-sleep 3
+    if [ $? -ne 0 ]; then
+        echo "Failed to start pppd" >&2
+        return 1
+    fi
 
-ip link set dev $IFNAME up
+    # hacky but we need to wait for pppd to possibly rename the interface
+    sleep 3
 
-if [ $? -ne 0 ]; then
-    echo "Failed to set $IFNAME state to up" >&2
-    exit 1
-fi
+    ip link set dev $IFNAME up
 
-ip addr add dev $IFNAME $TUNNEL_IP_SUBNET
+    if [ $? -ne 0 ]; then
+        echo "Failed to set $IFNAME state to up" >&2
+        return 1
+    fi
 
-if [ $? -ne 0 ]; then
-    echo "Failed to assign IP address to $IFNAME" >&2
-    exit 1
-fi
+    ip addr add dev $IFNAME $TUNNEL_IP_SUBNET
 
-echo "Local tunnel endpoint established"
+    if [ $? -ne 0 ]; then
+        echo "Failed to assign IP address to $IFNAME" >&2
+        return 1
+    fi
 
-# ping three times, waiting 3 seconds for each reply
-ping -c 3 -W 3 -q $SERVER_IP > /dev/null 2>&1
+    echo "Local tunnel endpoint established"
 
-if [ $? -ne 0 ]; then
-    echo "Unable to ping server over tunnel" >&2
-    exit 1
-else
-    echo "Tunnel connection established!"    
-fi
+    # ping three times, waiting 3 seconds for each reply
+    ping -c 3 -W 3 -q $SERVER_IP > /dev/null 2>&1
 
-wait $PPPD_PID
+    if [ $? -ne 0 ]; then
+        echo "Unable to ping server over tunnel" >&2
+        return 1
+    else
+        echo "Tunnel connection established!"    
+    fi
+
+    # heartbeat
+    while [ $? -eq 0 ]; do
+        echo "Pinging"
+        sleep $HEARTBEAT_INTERVAL
+        ping -c 1 -W 3 -q $SERVER_IP > /dev/null 2>&1
+        
+    done
+
+    echo "No hearbeat response. Closing tunnel."
+    kill $PPPD_PID > /dev/null 2>&1
+    wait $PPPD_PID
+    
+    return 0
+}
+
+RETRY_TIMEOUT_INITIAL=1
+RETRY_TIMEOUT_MAX=60
+RETRY_TIMEOUT=$RETRY_TIMEOUT_INITIAL
+
+while [ 1 ]; do
+    connect
+    
+    # if we were connected then reset the retry timeout
+    if [ $? -eq 0 ]; then
+        RETRY_TIMEOUT=$RETRY_TIMEOUT_INITIAL
+    else
+        RETRY_TIMEOUT=$(expr $RETRY_TIMEOUT \* 2)
+        if [ $RETRY_TIMEOUT -gt $RETRY_TIMEOUT_MAX ]; then
+            RETRY_TIMEOUT=$RETRY_TIMEOUT_MAX
+        fi
+    fi
+
+    echo "Retrying in $RETRY_TIMEOUT seconds"
+    sleep $RETRY_TIMEOUT
+done
+
+
+
+
 
 # kill PPPD and wait for it to die
 #kill $PPPD_PID
