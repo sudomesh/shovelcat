@@ -8,9 +8,16 @@ module.exports = {
   tunnelIPTo: "172.20.0.250", // up to and including this IP
   tunnelNetmask: 24,
   tunnelPortFrom: 8000,
-  tunnelPortTo: 8500
+  tunnelPortTo: 8500,
 
-  // Paths to optional user-defined scripts to call when atunnel goes up and down
+  // How often to check if client is responding in seconds
+  // Must be at least 6
+  // Note that the heartbeat is used only for cleanup of dead tunnels
+  // when the client does _not_ reconnect, so keeping this value high is fine.
+  // A value of 0 disables heartbeat.
+  heartbeatInterval: 60,
+  
+  // Paths to optional user-defined scripts to call when a tunnel goes up and down
   // They receve as arguments:
   //   <tunnel_iface_name> <tunnel_iface_ip> <tunnel_iface_subnet> <tunnel_port>
   postUpHook: '',

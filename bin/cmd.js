@@ -4,8 +4,6 @@ var spawn = require('child_process').spawn;
 var exec = require('child_process').exec;
 var net = require('net');
 
-// TODO add support for more than a /24 subnet of nodes
-
 var settings = require('../settings.js');
 
 var tunnelIPCount = 10; // used as the last part of the tunnel IP
@@ -37,6 +35,26 @@ function shutdown() {
 process.on('exit', shutdown);
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+
+// first arg to callback will be truthy if ping failed, otherwise falsy
+function ping(host, cb) {
+  exec('ping -c 3 -W 5 '+host, cb);
+}
+
+function heartbeat(tunnel, cb) {
+  if(tunnel.closed) return;
+
+  ping(tunnel.tunnelIP, function(fail, foo, bar) {
+    if(fail) {
+      if(tunnel.closed) return;
+      return cb();
+    }
+
+    setTimeout(function() {
+      heartbeat(tunnel, cb);
+    }, settings.heartbeatInterval * 1000);
+  });
+}
 
 function allocatePort() {
   var i, id, tun, used;
@@ -112,6 +130,8 @@ function parseClientHello(data) {
 }
 
 function closeTunnel(tunnel) {
+  if(tunnel.closed) return;
+  
   if(tunnel.process) {
     if(settings.preDownHook) {
       spawn(settings.preDownHook, [tunnel.ifname, tunnel.tunnelIP, settings.tunnelNetmask, tunnel.port]);
@@ -120,6 +140,7 @@ function closeTunnel(tunnel) {
     tunnel.process.kill();
   }
   delete tunnels[tunnel.id]
+  tunnel.closed = true;
 }
 
 function configureTunnel(tunnel, cb) {
@@ -213,12 +234,16 @@ function openTunnel(client, cb) {
   pppd.on('close', function(exitCode) {
     if(exitCode !== 0) {
       if(stderr) {
-        console.error("pppd died for tunnel:", tunnel, "with error:", stderr);
+        console.error("pppd died for tunnel with IP", tunnel.internetIP, "with error:", stderr);
+        closeTunnel(tunnel);
       } else {
-        console.error("pppd died for tunnel:", tunnel);
+        console.error("pppd died for tunnel with IP", tunnel.internetIP);
+        closeTunnel(tunnel);
       }
+      return;
     }
-    console.log("pppd terminated peacefully for tunnel:", tunnel);
+    console.log("pppd terminated peacefully for tunnel with IP:", tunnel.internetIP);
+    closeTunnel(tunnel);
   });
 
   // TODO add timeout so we kill this process if we never learn the tunnel interface name
@@ -246,6 +271,22 @@ var server = net.createServer(function(socket) {
 
             if(settings.postUpHook) {
               spawn(settings.postUpHook, [tunnel.ifname, tunnel.tunnelIP, settings.tunnelNetmask, tunnel.port]);
+            }
+
+            // start heartbeat
+            if(settings.heartbeatInterval) {
+              
+              // Kinda hacky but we shouldn't ping the client
+              // before the client has time to bring up its own end
+              // so we wait 20 seconds before sending the first heartbeat.
+              // This is fine since the heartbeat is only to clean up dead tunnels
+              // when clients disconnect and don't reconnect
+              setTimeout(function() {
+                heartbeat(tunnel, function() {
+                  console.log("Heartbeat failed for IP", tunnel.internetIP);
+                  closeTunnel(tunnel);
+                });
+              }, 20000); 
             }
             
           } catch(e) {

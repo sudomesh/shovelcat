@@ -10,9 +10,9 @@ WARNING: This turns your box into an open relay with absolutely no authenticatio
 
 # Requirements
 
-The server needs node.js, the `pppd` daemon, PPP support in the kernel and the `ip` command. A fairly old version of node.js should work. There are no dependecies on other node.js packages.
+The server needs node.js, the `pppd` daemon, PPP support in the kernel and the `ip` and `ping` commands. A fairly old version of node.js should work. There are no dependecies on other node.js packages.
 
-The client needs a shell (busybox sh or dash is fine), the `nc` command, the `pppd` daemon and PPP support in the kernel.
+The client needs a shell (busybox sh or dash is fine), PPP support in the kernel, the `pppd` daemon and the `nc`, `ip` and `ping` commands.
 
 Both client and server must be run as root.
 
@@ -66,6 +66,5 @@ sudo ./client.sh
 
 # ToDo
 
-* Implement server heartbeat and tunnel teardown/re-establish after timeout
 * Finish IPv6 support
 
