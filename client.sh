@@ -31,7 +31,12 @@ ID=$(echo "$MAC meshmash" | md5sum)
 PPPD_PID=""
 
 shutdown() {
-    kill $PPPD_PID
+    if [ -z $PPPD_PID ]; then
+       exit 0
+    fi
+    
+    echo "Shutting down tunnel"
+    kill $PPPD_PID > /dev/null 2>&1
     wait $PPPD_PID
     exit 0
 }
