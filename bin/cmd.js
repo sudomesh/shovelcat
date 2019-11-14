@@ -20,6 +20,24 @@ if(process.getuid() !== 0) {
   process.exit(1);
 }
 
+var shutdownTriggered = false;
+
+function shutdown() {
+  if(shutdownTriggered) return;
+  shutdownTriggered = true;
+     
+  var id;
+  console.log("Shutting down all tunnels")
+  for(id in tunnels) {
+    closeTunnel(tunnels[id]);
+  }
+  process.exit();
+}
+
+process.on('exit', shutdown);
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
 function allocatePort() {
   var i, id, tun, used;
   for(i=settings.tunnelPortFrom; i < settings.tunnelPortTo; i++) {
@@ -95,6 +113,9 @@ function parseClientHello(data) {
 
 function closeTunnel(tunnel) {
   if(tunnel.process) {
+    if(settings.preDownHook) {
+      spawn(settings.preDownHook, [tunnel.ifname, tunnel.tunnelIP, settings.tunnelNetmask, tunnel.port]);
+    }
     tunnel.socket.destroy();
     tunnel.process.kill();
   }
@@ -110,11 +131,12 @@ function configureTunnel(tunnel, cb) {
       }
       return cb(new Error(str));
     }
-  // TODO add IPv6 support here
-  if(tunnel.ipv6) {
-    return cb(new Error("configureTunnel does not have IPv6 support"));
-  }
-  
+    
+    // TODO add IPv6 support here
+    if(tunnel.ipv6) {
+      return cb(new Error("configureTunnel does not have IPv6 support"));
+    }
+    
     exec('ip addr add dev '+tunnel.ifname+' '+settings.tunnelIP+'/'+settings.tunnelNetmask, {shell: true},  function(err, stdout, stderr) {
       if(err) {
         var str = "Configuring tunnel failed";
@@ -197,42 +219,49 @@ function openTunnel(client, cb) {
       }
     }
     console.log("pppd terminated peacefully for tunnel:", tunnel);
-    console.log(stdout)
-    console.log(stderr)    
   });
 
   // TODO add timeout so we kill this process if we never learn the tunnel interface name
 }
 
 var server = net.createServer(function(socket) {
-
-  var addr = socket.address();
-  console.log("Client connected from IP:", addr.address);
-  
-  socket.on('data', function(data) {
-    try {
-      var client = parseClientHello(data);
-      client.ip = addr.address;
-      if(addr.family !== 'IPv4') {
-        client.ipv6 = true;
-      }
-      client.socket = socket;
-      openTunnel(client, function(err, tunnel) {
-        if(err) return console.error(err);
-        
-        try {
-          socket.write(settings.tunnelIP+'|'+tunnel.tunnelIP+'/'+settings.tunnelNetmask+':'+tunnel.port+"\n");
-          socket.end();
-        } catch(e) {
-          console.log("Socket closed before we could tell the client their IP");
-          tunnel.killMe = true;
+  try {
+    var addr = socket.address();
+    console.log("Client connected from IP:", addr.address);
+    
+    socket.on('data', function(data) {
+      try {
+        var client = parseClientHello(data);
+        client.ip = addr.address;
+        if(addr.family !== 'IPv4') {
+          client.ipv6 = true;
         }
-      });
-    } catch(e) {
-      socket.write("Error: " + e.toString());
-      socket.destroy();
-    }
-  });
+        client.socket = socket;
+        openTunnel(client, function(err, tunnel) {
+          if(err) return console.error(err);
+          
+          try {
+            socket.write(settings.tunnelIP+'|'+tunnel.tunnelIP+'/'+settings.tunnelNetmask+':'+tunnel.port+"\n");
+            socket.end();
+
+            if(settings.postUpHook) {
+              spawn(settings.postUpHook, [tunnel.ifname, tunnel.tunnelIP, settings.tunnelNetmask, tunnel.port]);
+            }
+            
+          } catch(e) {
+            console.log("Socket closed before we could tell the client their IP");
+            closeTunnel(tunnel);
+          }
+
+        });
+      } catch(e) {
+        socket.write("Error: " + e.toString());
+        socket.destroy();
+      }
+    });
+  } catch(e) {
+    console.log("Error:", e);
+  }
 }).on('error', function(err) {
   console.log("Error:", err);
 });
@@ -241,7 +270,7 @@ server.listen({
   host: settings.ip,
   port: settings.port
 }, function() {
-  console.log("Server listening in port", settings.port);
+  console.log("Server listening on port", settings.port);
 });
 
   

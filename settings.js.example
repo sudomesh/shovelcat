@@ -9,5 +9,11 @@ module.exports = {
   tunnelNetmask: 24,
   tunnelPortFrom: 8000,
   tunnelPortTo: 8500
+
+  // Paths to optional user-defined scripts to call when atunnel goes up and down
+  // They receve as arguments:
+  //   <tunnel_iface_name> <tunnel_iface_ip> <tunnel_iface_subnet> <tunnel_port>
+  postUpHook: '',
+  preDownHook: ''
   
 };

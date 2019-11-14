@@ -19,6 +19,11 @@ MAC_INTERFACE="wlan0"
 # Ping the other end every HEARTBEAT_INTERVAL seconds
 HEARTBEAT_INTERVAL=3
 
+# Paths to optional user-defined scripts to call when the tunnel goes up and down
+# They receve as arguments:
+#   <tunnel_iface_name> <tunnel_iface_ip> <tunnel_iface_subnet> <tunnel_port>
+POST_UP_HOOK="./dummy_up.sh"
+PRE_DOWN_HOOK="./dummy_down.sh"
 
 #--------------------------------------------------
 # Don't edit beyond this point for config purposes
@@ -29,6 +34,21 @@ MAC=$(ip link show dev $MAC_INTERFACE | grep ether| tr -s ' ' | cut -d ' ' -f 3)
 ID=$(echo "$MAC meshmash" | md5sum)
 
 PPPD_PID=""
+TUNNEL_IP=""
+TUNNEL_SUBNET=""
+TUNNEL_PORT=""
+
+disconnect() {
+
+    if [ ! -z $PRE_DOWN_HOOK ]; then
+        if [ -x $PRE_DOWN_HOOK ]; then
+            $PRE_DOWN_HOOK $IFNAME $TUNNEL_IP $TUNNEL_IP_SUBNET $TUNNEL_PORT
+        fi
+    fi
+    
+    kill $PPPD_PID > /dev/null 2>&1
+    wait $PPPD_PID
+}
 
 shutdown() {
     if [ -z $PPPD_PID ]; then
@@ -36,12 +56,11 @@ shutdown() {
     fi
     
     echo "Shutting down tunnel"
-    kill $PPPD_PID > /dev/null 2>&1
-    wait $PPPD_PID
+    disconnect
     exit 0
 }
 
-trap "shutdown" SIGINT SIGTERM SIGKILL
+trap "shutdown" SIGINT SIGTERM
 
 connect() {
 
@@ -112,20 +131,22 @@ connect() {
         echo "Unable to ping server over tunnel" >&2
         return 1
     else
-        echo "Tunnel connection established!"    
+        echo "Tunnel connection established!"
+        if [ ! -z $POST_UP_HOOK ]; then
+            if [ -x $POST_UP_HOOK ]; then
+                $POST_UP_HOOK $IFNAME $TUNNEL_IP $TUNNEL_IP_SUBNET $TUNNEL_PORT
+            fi
+        fi
     fi
 
     # heartbeat
     while [ $? -eq 0 ]; do
-        echo "Pinging"
         sleep $HEARTBEAT_INTERVAL
         ping -c 1 -W 3 -q $SERVER_IP > /dev/null 2>&1
-        
     done
-
+    
     echo "No hearbeat response. Closing tunnel."
-    kill $PPPD_PID > /dev/null 2>&1
-    wait $PPPD_PID
+    disconnect
     
     return 0
 }
