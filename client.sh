@@ -28,6 +28,16 @@ HEARTBEAT_INTERVAL=3
 MAC=$(ip link show dev $MAC_INTERFACE | grep ether| tr -s ' ' | cut -d ' ' -f 3)
 ID=$(echo "$MAC meshmash" | md5sum)
 
+PPPD_PID=""
+
+shutdown() {
+    kill $PPPD_PID
+    wait $PPPD_PID
+    exit 0
+}
+
+trap "shutdown" SIGINT SIGTERM SIGKILL
+
 connect() {
 
     echo "Connecting to shovelcat server"
@@ -136,10 +146,3 @@ while [ 1 ]; do
     sleep $RETRY_TIMEOUT
 done
 
-
-
-
-
-# kill PPPD and wait for it to die
-#kill $PPPD_PID
-#wait $PPPD_PID
