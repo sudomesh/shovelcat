@@ -64,4 +64,5 @@ sudo ./client.sh
 
 # ToDo
 
+* Set MTU at both ends
 * Finish IPv6 support
