@@ -10,7 +10,7 @@ WARNING: The tunnel deamon has absolutely no authentication. Anyone will be able
 
 # Requirements
 
-The server needs node.js, the `pppd` daemon, PPP support in the kernel and the `ip` and `ping` commands. A fairly old version of node.js should work. There are no dependecies on other node.js packages.
+The server needs node.js, the `pppd` daemon, PPP support in the kernel and the 1nc1, `ip` and `ping` commands. A fairly old version of node.js should work. There are no dependecies on other node.js packages.
 
 The client needs a shell (busybox sh or dash is fine), PPP support in the kernel, the `pppd` daemon and the `nc`, `ip` and `ping` commands.
 
