@@ -6,7 +6,7 @@ The daemon listens for requests to open a tunnel, assigns an IP and port from a 
 
 The client is a simple shell script capable of running on busybox.
 
-WARNING: The deamon turns your box into an open relay with absolutely no authentication.
+WARNING: The tunnel deamon has absolutely no authentication. Anyone will be able to open a tunnel so be careful what you allow through your endpoint.
 
 # Requirements
 
