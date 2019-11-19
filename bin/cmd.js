@@ -144,29 +144,38 @@ function closeTunnel(tunnel) {
 }
 
 function configureTunnel(tunnel, cb) {
-  exec('ip link set dev '+tunnel.ifname+' up', {shell: true}, function(err, stdout, stderr) {
+  exec('ip link set mtu '+settings.mtu+' dev '+tunnel.ifname, {shell: true}, function(err, stdout, stderr) {
     if(err) {
-      var str = "Setting tunnel state to UP failed";
+      var str = "Setting tunnel MTU to "+settings.mtu+" failed";
       if(stderr) {
         str += ": " + stderr;
       }
       return cb(new Error(str));
     }
-    
-    // TODO add IPv6 support here
-    if(tunnel.ipv6) {
-      return cb(new Error("configureTunnel does not have IPv6 support"));
-    }
-    
-    exec('ip addr add dev '+tunnel.ifname+' '+settings.tunnelIP+'/'+settings.tunnelNetmask, {shell: true},  function(err, stdout, stderr) {
+    exec('ip link set dev '+tunnel.ifname+' up', {shell: true}, function(err, stdout, stderr) {
       if(err) {
-        var str = "Configuring tunnel failed";
+        var str = "Setting tunnel state to UP failed";
         if(stderr) {
           str += ": " + stderr;
         }
         return cb(new Error(str));
       }
-      cb(null, tunnel);
+      
+      // TODO add IPv6 support here
+      if(tunnel.ipv6) {
+        return cb(new Error("configureTunnel does not have IPv6 support"));
+      }
+      
+      exec('ip addr add dev '+tunnel.ifname+' '+settings.tunnelIP+'/'+settings.tunnelNetmask, {shell: true},  function(err, stdout, stderr) {
+        if(err) {
+          var str = "Configuring tunnel failed";
+          if(stderr) {
+            str += ": " + stderr;
+          }
+          return cb(new Error(str));
+        }
+        cb(null, tunnel);
+      });
     });
   });
 }

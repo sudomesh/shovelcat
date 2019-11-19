@@ -62,7 +62,10 @@ sudo ./bin/cmd.js
 sudo ./client.sh
 ```
 
+## A note on MTU
+
+I've seen the tunnel overhead vary between 52 and 54 bytes, but I've only tested with small packets. I'm not sure if 54 is the actual max. I've set the default MTU to 1436 which assumes a maximum 64 byte overhead. Hopefully that's enough.
+
 # ToDo
 
-* Set MTU at both ends
 * Finish IPv6 support

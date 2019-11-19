@@ -16,6 +16,9 @@ DAEMON_PORT=9999
 # and manually set ID= to some device-unique string
 MAC_INTERFACE="wlan0"
 
+# This should be the MTU of your network interface minus 64
+MTU=1436
+
 # Ping the other end every HEARTBEAT_INTERVAL seconds
 HEARTBEAT_INTERVAL=3
 
@@ -108,8 +111,15 @@ connect() {
     # hacky but we need to wait for pppd to possibly rename the interface
     sleep 3
 
-    ip link set dev $IFNAME up
+    ip link set mtu $MTU dev $IFNAME
 
+    if [ $? -ne 0 ]; then
+        echo "Failed setting the mtu of $IFNAME to $MTU" >&2
+        return 1
+    fi
+    
+    ip link set dev $IFNAME up
+    
     if [ $? -ne 0 ]; then
         echo "Failed to set $IFNAME state to up" >&2
         return 1

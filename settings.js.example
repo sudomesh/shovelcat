@@ -9,7 +9,8 @@ module.exports = {
   tunnelNetmask: 24, // Netmask for tunnel subnet
   tunnelPortFrom: 8000, // Start of port range for netcat UDP tunnel socket
   tunnelPortTo: 8500, // End of port range for netcat UDP tunnel socket
-
+  mtu: 1436, // This should be the MTU of your network interface minus 64
+  
   // How often to check if client is responding in seconds
   // Must be at least 6
   // Note that the heartbeat is used only for cleanup of dead tunnels
