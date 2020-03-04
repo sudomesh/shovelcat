@@ -212,7 +212,7 @@ function openTunnel(client, cb) {
   var cmd = 'pppd';
   var args = [
     'pty',
-    'nc -u -l '+tunnel.port,
+    'nc -l '+tunnel.port,
     settings.tunnelIP+':'+tunnelIP,
     'local',
     'nodetach',
@@ -299,7 +299,7 @@ var server = net.createServer(function(socket) {
             }
             
           } catch(e) {
-            console.log("Socket closed before we could tell the client their IP");
+            console.log("Socket closed before we could tell the client their IP:", e);
             closeTunnel(tunnel);
           }
 

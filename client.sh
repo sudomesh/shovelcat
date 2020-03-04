@@ -4,7 +4,7 @@
 IFNAME="ppp0"
 
 # Port where the tunnel daemon is listening
-DAEMON_IP=107.170.232.149
+DAEMON_IP=192.168.128.46
 DAEMON_PORT=9999
 
 # Interface to get MAC address from.
@@ -25,8 +25,8 @@ HEARTBEAT_INTERVAL=3
 # Paths to optional user-defined scripts to call when the tunnel goes up and down
 # They receve as arguments:
 #   <tunnel_iface_name> <tunnel_iface_ip> <tunnel_iface_subnet> <tunnel_port>
-POST_UP_HOOK="./dummy_up.sh"
-PRE_DOWN_HOOK="./dummy_down.sh"
+#POST_UP_HOOK="./dummy_up.sh"
+#PRE_DOWN_HOOK="./dummy_down.sh"
 
 #--------------------------------------------------
 # Don't edit beyond this point for config purposes
@@ -40,7 +40,7 @@ PPPD_PID=""
 TUNNEL_IP=""
 TUNNEL_SUBNET=""
 TUNNEL_PORT=""
-
+ 
 disconnect() {
 
     if [ ! -z $PRE_DOWN_HOOK ]; then
@@ -70,15 +70,15 @@ connect() {
     echo "Connecting to shovelcat server"
 
     # ask tunneling server to open a tunnel
-    REPLY=$(echo $ID | nc $DAEMON_IP $DAEMON_PORT)
+    REPLY=$(echo $ID | nc -i 3 $DAEMON_IP $DAEMON_PORT)
 
     if [ $? -ne 0 ]; then
-        echo "Unable to connect to tunneling daemon" > /dev/stderr
+        echo "Unable to connect to tunneling daemon"
         return 1
     fi
 
     if [ -z $REPLY ]; then
-        echo "Remote server closed socket without replying" > /dev/stderr
+        echo "Remote server closed socket without replying"
         return 1
     fi
 
@@ -99,7 +99,7 @@ connect() {
 
     echo "Remote tunnel endpoint established"
 
-    pppd pty "nc -u $DAEMON_IP $TUNNEL_PORT" ${TUNNEL_IP}:${SERVER_IP} ifname $IFNAME local nodetach silent &
+    pppd pty "nc $DAEMON_IP $TUNNEL_PORT" ${TUNNEL_IP}:${SERVER_IP} local nodetach silent &
 
     PPPD_PID=$!
 
