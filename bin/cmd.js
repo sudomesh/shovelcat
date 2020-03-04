@@ -212,8 +212,8 @@ function openTunnel(client, cb) {
   var cmd = 'pppd';
   var args = [
     'pty',
-    'nc -l '+tunnel.port,
-    settings.tunnelIP+':'+tunnelIP,
+    settings.ncCmd + (settings.useUDP ? '-u' : '') + 'nc -l ' + tunnel.port,
+    settings.tunnelIP + ':' + tunnelIP,
     'local',
     'nodetach',
     'silent'];

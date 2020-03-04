@@ -10,6 +10,8 @@ module.exports = {
   tunnelPortFrom: 8000, // Start of port range for netcat UDP tunnel socket
   tunnelPortTo: 8500, // End of port range for netcat UDP tunnel socket
   mtu: 1436, // This should be the MTU of your network interface minus 64
+  useUDP: false, // Should UDP be used for the tunnel (TCP if false)
+  ncCmd: 'nc', // The command to use for netcat
   
   // How often to check if client is responding in seconds
   // Must be at least 6
@@ -22,6 +24,5 @@ module.exports = {
   // They receive as arguments:
   //   <tunnel_iface_name> <tunnel_iface_ip> <tunnel_iface_subnet> <tunnel_port>
   postUpHook: '',
-  preDownHook: ''
-  
+  preDownHook: ''  
 };

@@ -1,11 +1,27 @@
 #!/bin/sh
 
+# Port where the tunnel daemon is listening
+DAEMON_IP=127.0.0.1
+DAEMON_PORT=9999
+
+# The command to use for netcat
+NC_CMD="nc"
+
+# Is the busybox version of netcat being used?
+# If this is false then the OpenBSD version of netcat is assumed
+BUSYBOX_NETCAT=true
+
+# Use UDP for the tunnel? If this is false then TCP will be used
+USE_UDP=false
+
 # Interface name for the tunnel
+# If SET_IFNAME below is true then the tunnel will use this interface name.
+# If SET_IFNAME is false then this is the expected name the tunnel will have.
 IFNAME="ppp0"
 
-# Port where the tunnel daemon is listening
-DAEMON_IP=192.168.128.46
-DAEMON_PORT=9999
+# If your version of pppd supports setting the tunnel interface name
+# using the `ifname <interface name>` syntax then set this to true
+SET_IFNAME=false
 
 # Interface to get MAC address from.
 # The MAC address is used as this device's unique identifier
@@ -69,8 +85,18 @@ connect() {
 
     echo "Connecting to shovelcat server"
 
+    NC_HANDSHAKE_ARGS=""
+    if [ "$BUSYBOX_NETCAT" = true ]; then
+        # For busybox netcat, when input is piped into the nc command
+        # it will connect, send the piped data and immediately exit
+        # unless the `-i` argument is given
+        # The OpenBSD version of netcat will stay open until the remote
+        # end closes the connection even without the `-i` flag
+        NC_HANDSHAKE_ARGS="-i 3"
+    fi
+    
     # ask tunneling server to open a tunnel
-    REPLY=$(echo $ID | nc -i 3 $DAEMON_IP $DAEMON_PORT)
+    REPLY=$(echo $ID | $NC_CMD $NC_HANDSHAKE_ARGS $DAEMON_IP $DAEMON_PORT)
 
     if [ $? -ne 0 ]; then
         echo "Unable to connect to tunneling daemon"
@@ -99,7 +125,17 @@ connect() {
 
     echo "Remote tunnel endpoint established"
 
-    pppd pty "nc $DAEMON_IP $TUNNEL_PORT" ${TUNNEL_IP}:${SERVER_IP} local nodetach silent &
+    PPP_ARGS=""
+    if [ "$SET_IFNAME" = true ]; then
+        PPP_ARGS="ifname $IFNAME"
+    fi
+
+    NC_ARGS=""
+    if [ "$USE_UDP" = true ]; then
+        NC_ARGS="-u"
+    fi
+        
+    pppd pty "$NC_CMD $NC_ARGS $DAEMON_IP $TUNNEL_PORT" ${TUNNEL_IP}:${SERVER_IP} $PPP_ARGS local nodetach silent &
 
     PPPD_PID=$!
 
