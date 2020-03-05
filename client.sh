@@ -28,7 +28,7 @@ SET_IFNAME=""
 # for talking to the tunnel daemon.
 # It doesn't matter which interface is used as long as it exists
 # and has a device-unique MAC address.
-# Alternatively you can remove the MAC= line furthre down 
+# Alternatively you can remove the MAC= line further down 
 # and manually set ID= to some device-unique string
 MAC_INTERFACE="wlan0"
 
@@ -170,7 +170,8 @@ connect() {
     if [ -z "$SET_IFNAME" ]; then
         # Look at each line of output from pppd and wait for it to announce
         # the name of the interface
-        while read line; do
+        while read -t 2 line; do
+
             MATCH=$(echo $line | grep -i 'using interface')
             if [ "$?" -eq "0" ]; then
                 IFNAME=$(echo $MATCH | cut -d ' ' -f 3)
@@ -182,6 +183,12 @@ connect() {
                 break
             fi
         done <$FIFO
+        
+        if [ "$IFNAME" = "-" ]; then
+            echo "Timed out waiting for tunnel interface name" >&2
+            rm -f $FIFO
+            return 1
+        fi
     fi
 
     echo "Tunnel interface is: $IFNAME"
