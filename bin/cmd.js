@@ -3,7 +3,7 @@
 var spawn = require('child_process').spawn;
 var exec = require('child_process').exec;
 var net = require('net');
-
+var kill = process.kill;
 var settings = require('../settings.js');
 
 var tunnelIPCount = 10; // used as the last part of the tunnel IP
@@ -134,10 +134,14 @@ function closeTunnel(tunnel) {
   
   if(tunnel.process) {
     if(settings.preDownHook) {
-      spawn(settings.preDownHook, [tunnel.ifname, tunnel.tunnelIP, settings.tunnelNetmask, tunnel.port]);
+      var process = spawn(settings.preDownHook, [tunnel.ifname, tunnel.tunnelIP, settings.tunnelNetmask, tunnel.port], {
+        detached: true
+      });
     }
     tunnel.socket.destroy();
-    tunnel.process.kill();
+
+    // Send SIGINT to the process group
+    kill(-tunnel.process.pid, 'SIGINT');
   }
   delete tunnels[tunnel.id]
   tunnel.closed = true;
@@ -211,15 +215,15 @@ function openTunnel(client, cb) {
   
   var cmd = 'pppd';
   var args = [
-    'pty',
-    settings.ncCmd + (settings.useUDP ? '-u' : '') + 'nc -l ' + tunnel.port,
-    settings.tunnelIP + ':' + tunnelIP,
-    'local',
-    'nodetach',
-    'silent'];
+    'pty', // use the following script to communicate
+    settings.ncCmd + (settings.useUDP ? ' -u ' : '') + ' -l ' + tunnel.port,
+    'child-timeout', 0, // wait for child process (nc) to exit when terminating
+    settings.tunnelIP + ':' + tunnelIP, // set local and remote IP addresses
+    'local', // don't use modem control lines
+    'nodetach', // don't detach from controlling terminal
+    'silent']; // don't transmit LCP packets until an LCP packet is received
   
-  var pppd = spawn(cmd, args, {
-  });
+  var pppd = spawn(cmd, args, {});
   
   tunnel.process = pppd;
   
@@ -244,9 +248,11 @@ function openTunnel(client, cb) {
     if(exitCode !== 0) {
       if(stderr) {
         console.error("pppd died for tunnel with IP", tunnel.internetIP, "with error:", stderr);
+        console.log("pppd stdout said:", stdout);
         closeTunnel(tunnel);
       } else {
         console.error("pppd died for tunnel with IP", tunnel.internetIP);
+        console.log("pppd stdout said:", stdout);
         closeTunnel(tunnel);
       }
       return;

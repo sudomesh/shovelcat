@@ -66,6 +66,10 @@ sudo ./client.sh
 
 I've seen the tunnel overhead vary between 52 and 54 bytes, but I've only tested with small packets. I'm not sure if 54 is the actual max. I've set the default MTU to 1436 which assumes a maximum 64 byte overhead. Hopefully that's enough.
 
+# Errors
+
+`nc: Address already in use`: You already have something listening on the port nc is trying to use. Change `tunnelPortFrom` and `tunnelPortTo` in settings.js or check that you don't have lingering stale `nc` instances using `ps aux | grep nc`.
+
 # ToDo
 
 * Finish IPv6 support

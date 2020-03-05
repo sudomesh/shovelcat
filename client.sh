@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Port where the tunnel daemon is listening
-DAEMON_IP=127.0.0.1
+DAEMON_IP=juul.io
 DAEMON_PORT=9999
 
 # The command to use for netcat
@@ -12,11 +12,13 @@ NC_CMD="nc"
 BUSYBOX_NETCAT=true
 
 # Use UDP for the tunnel? If this is false then TCP will be used
-USE_UDP=false
+# You should definitely set this ti true if you have UDP support in your netcat
+USE_UDP=true
 
 # Interface name for the tunnel
 # If SET_IFNAME below is true then the tunnel will use this interface name.
-# If SET_IFNAME is false then this is the expected name the tunnel will have.
+# If SET_IFNAME is false then this is the name the tunnel
+# is expected to be auto-assigned when it is created.
 IFNAME="ppp0"
 
 # If your version of pppd supports setting the tunnel interface name
@@ -44,9 +46,15 @@ HEARTBEAT_INTERVAL=3
 #POST_UP_HOOK="./dummy_up.sh"
 #PRE_DOWN_HOOK="./dummy_down.sh"
 
+# Where to store temporary files
+TMP_DIR=/tmp/shovelcat
+
 #--------------------------------------------------
 # Don't edit beyond this point for config purposes
 #--------------------------------------------------
+
+mkdir -p $TMP_DIR
+FIFO=${TMP_DIR}/${$}.fifo
 
 # Generate device-unique ID from MAC address
 MAC=$(ip link show dev $MAC_INTERFACE | grep ether| tr -s ' ' | cut -d ' ' -f 3)
@@ -76,10 +84,11 @@ shutdown() {
     
     echo "Shutting down tunnel"
     disconnect
+    rm -f $FIFO
     exit 0
 }
 
-trap "shutdown" SIGINT SIGTERM
+trap "shutdown" INT TERM
 
 connect() {
 
@@ -134,7 +143,10 @@ connect() {
     if [ "$USE_UDP" = true ]; then
         NC_ARGS="-u"
     fi
-        
+
+    
+    mkfifo $FIFO
+    
     pppd pty "$NC_CMD $NC_ARGS $DAEMON_IP $TUNNEL_PORT" ${TUNNEL_IP}:${SERVER_IP} $PPP_ARGS local nodetach silent &
 
     PPPD_PID=$!
