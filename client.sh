@@ -28,7 +28,7 @@ SET_IFNAME=""
 # for talking to the tunnel daemon.
 # It doesn't matter which interface is used as long as it exists
 # and has a device-unique MAC address.
-# Alternatively you can remove the MAC= line below
+# Alternatively you can remove the MAC= line furthre down 
 # and manually set ID= to some device-unique string
 MAC_INTERFACE="wlan0"
 
@@ -160,8 +160,10 @@ connect() {
         return 1
     fi
 
-    # hacky but we need to wait for pppd to possibly rename the interface
-    sleep 3
+    if [ ! -z "$SET_IFNAME" ]; then
+        # hacky but we need to wait for pppd to possibly rename the interface
+        sleep 3
+    fi
 
     echo "Waiting for tunnel interface name to be assigned"
 
