@@ -15,15 +15,13 @@ BUSYBOX_NETCAT=true
 # You should definitely set this ti true if you have UDP support in your netcat
 USE_UDP=true
 
-# Interface name for the tunnel
-# If SET_IFNAME below is true then the tunnel will use this interface name.
-# If SET_IFNAME is false then this is the name the tunnel
-# is expected to be auto-assigned when it is created.
-IFNAME="ppp0"
-
 # If your version of pppd supports setting the tunnel interface name
-# using the `ifname <interface name>` syntax then set this to true
-SET_IFNAME=false
+# using the `ifname <interface name>` syntax then you can use this
+# to specify what you'd like the tunnnel interface to be called
+# e.g. SET_IFNAME="ppp0"
+# If you would like the tunnel interface name to be auto-detected
+# then set this value to ""
+SET_IFNAME=""
 
 # Interface to get MAC address from.
 # The MAC address is used as this device's unique identifier
@@ -52,6 +50,12 @@ TMP_DIR=/tmp/shovelcat
 #--------------------------------------------------
 # Don't edit beyond this point for config purposes
 #--------------------------------------------------
+
+if [ ! -z "$SET_IFNAME" ]; then
+  IFNAME=$SET_IFNAME
+else
+  IFNAME="-"    
+fi
 
 mkdir -p $TMP_DIR
 FIFO=${TMP_DIR}/${$}.fifo
@@ -108,16 +112,16 @@ connect() {
     REPLY=$(echo $ID | $NC_CMD $NC_HANDSHAKE_ARGS $DAEMON_IP $DAEMON_PORT)
 
     if [ $? -ne 0 ]; then
-        echo "Unable to connect to tunneling daemon"
+        echo "Unable to connect to tunneling daemon" >&2
         return 1
     fi
 
     if [ -z $REPLY ]; then
-        echo "Remote server closed socket without replying"
+        echo "Remote server closed socket without replying" >&2
         return 1
     fi
 
-    echo "Got reply"
+    echo "Got reply from server"
 
     # parse reply
     SERVER_IP=$(echo $REPLY | cut -d '|' -f 1 | sed 's/[^[[:digit:].]//g')
@@ -135,7 +139,7 @@ connect() {
     echo "Remote tunnel endpoint established"
 
     PPP_ARGS=""
-    if [ "$SET_IFNAME" = true ]; then
+    if [ ! -z "$SET_IFNAME" ]; then
         PPP_ARGS="ifname $IFNAME"
     fi
 
@@ -144,25 +148,47 @@ connect() {
         NC_ARGS="-u"
     fi
 
-    
     mkfifo $FIFO
     
-    pppd pty "$NC_CMD $NC_ARGS $DAEMON_IP $TUNNEL_PORT" ${TUNNEL_IP}:${SERVER_IP} $PPP_ARGS local nodetach silent &
+    pppd pty "$NC_CMD $NC_ARGS $DAEMON_IP $TUNNEL_PORT" ${TUNNEL_IP}:${SERVER_IP} $PPP_ARGS local nodetach silent > $FIFO &
 
     PPPD_PID=$!
 
     if [ $? -ne 0 ]; then
         echo "Failed to start pppd" >&2
+        rm -f $FIFO
         return 1
     fi
 
     # hacky but we need to wait for pppd to possibly rename the interface
     sleep 3
 
+    echo "Waiting for tunnel interface name to be assigned"
+
+    if [ -z "$SET_IFNAME" ]; then
+        # Look at each line of output from pppd and wait for it to announce
+        # the name of the interface
+        while read line; do
+            MATCH=$(echo $line | grep -i 'using interface')
+            if [ "$?" -eq "0" ]; then
+                IFNAME=$(echo $MATCH | cut -d ' ' -f 3)
+                if [ -z "$IFNAME" ]; then
+                    echo "Failed to find tunnel interface name" >&2
+                    rm -f $FIFO
+                    return 1
+                fi
+                break
+            fi
+        done <$FIFO
+    fi
+
+    echo "Tunnel interface is: $IFNAME"
+    
     ip link set mtu $MTU dev $IFNAME
 
     if [ $? -ne 0 ]; then
         echo "Failed setting the mtu of $IFNAME to $MTU" >&2
+        rm -f $FIFO
         return 1
     fi
     
@@ -170,6 +196,7 @@ connect() {
     
     if [ $? -ne 0 ]; then
         echo "Failed to set $IFNAME state to up" >&2
+        rm -f $FIFO
         return 1
     fi
 
@@ -177,6 +204,7 @@ connect() {
 
     if [ $? -ne 0 ]; then
         echo "Failed to assign IP address to $IFNAME" >&2
+        rm -f $FIFO
         return 1
     fi
 
@@ -187,6 +215,7 @@ connect() {
 
     if [ $? -ne 0 ]; then
         echo "Unable to ping server over tunnel" >&2
+        rm -f $FIFO
         return 1
     else
         echo "Tunnel connection established!"
@@ -205,6 +234,8 @@ connect() {
     
     echo "No hearbeat response. Closing tunnel."
     disconnect
+
+    rm -f $FIFO
     
     return 0
 }
