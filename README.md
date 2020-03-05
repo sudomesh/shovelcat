@@ -12,9 +12,35 @@ WARNING: The tunnel deamon has absolutely no authentication. Anyone will be able
 
 The server needs node.js, the `pppd` daemon, PPP support in the kernel and the `nc`, `ip` and `ping` commands. A fairly old version of node.js should work. There are no dependecies on other node.js packages. The server has only been tested with the OpenBSD version of `nc`. On Debian-based systems this can be installed with `apt install netcat-openbsd`.
 
-The client needs a shell (busybox sh or dash is fine), PPP support in the kernel, the `pppd` daemon and the `nc`, `ip`, `ping`, 'cut' and 'sed' commands (busybox versions is fine). It is a really good idea to use a version of `nc` that supports UDP, since tunneling over TCP often won't be a great experience. A pre-compiled ARM version of busybox that only includes netcat (with UDP support) is in the `utils/` folder.
+The client needs a shell (busybox sh or dash is fine), PPP support in the kernel, the `pppd` daemon and the `nc`, `ip`, `ping`, 'cut' and 'sed' commands (busybox versions are fine). It is a really good idea to use a version of `nc` that supports UDP, since tunneling over TCP often won't be a great experience. A pre-compiled ARM version of busybox that only includes netcat (with UDP support) is in the `utils/` folder.
 
 Both client and server must be run as root.
+
+# Checking for PPP support
+
+Your kernel must have the `CONFIG_PPP` option enabled. Here are a couple of ways to check.
+
+If you have `config-<something>` files in your `/boot`:
+
+```
+grep "CONFIG_PPP=" /boot/config-`uname -r`
+```
+
+If you have the file `/proc/config.gz` and the `zcat` command:
+
+```
+zcat /proc/config.gz | grep "CONFIG_PPP="
+```
+
+Or without `zcat`:
+
+```
+cp /proc/config.gz /tmp
+cd /tmp
+gunzip config.gz
+grep "CONFIG_PPP=" config
+rm config
+```
 
 # Configuration
 
